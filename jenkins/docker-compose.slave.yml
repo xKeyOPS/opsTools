@@ -1,0 +1,13 @@
+version: '3.3'
+services:
+  jenkins-slave:
+    image: jenkins/jnlp-slave
+    environment:
+      - JENKINS_URL=http://localhost:8080
+      - JENKINS_SECRET=9d243d85fd28b35978473bd3e66e6274dc0bc6c8ff65fa04237156f883fa0ee2
+      - JENKINS_AGENT_NAME=slave-agent.jnlp
+      - JENKINS_AGENT_WORKDIR=/home/xkey/ubuntu/slave
+    volumes:
+      - /home/xkey/ubuntu/slave/ansible_jnlp:/home/xkey/ubuntu/slave
+    restart: unless-stopped
+
