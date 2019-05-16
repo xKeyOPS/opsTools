@@ -1,4 +1,4 @@
-FROM jenkins/jenkins:latest
+FROM jenkins/blueocean:latest
 
 RUN /usr/local/bin/install-plugins.sh git mstest matrix-auth workflow-aggregator docker-workflow blueocean credentials-binding
 
