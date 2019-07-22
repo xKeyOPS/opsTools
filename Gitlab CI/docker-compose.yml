@@ -1,0 +1,111 @@
+version: '2'
+services:
+  redis:
+    container_name: gitlab-redis
+    restart: always
+    image: sameersbn/redis:latest
+    command:
+    - --loglevel warning
+    volumes:
+    - /srv/redis:/var/lib/redis:Z
+    networks:
+    - mynet
+ 
+  postgresql:
+    container_name: gitlab-postgres
+    restart: always
+    image: sameersbn/postgresql:9.6-1
+    volumes:
+    - /srv/postgresql:/var/lib/postgresql:Z
+    environment:
+    - DB_USER=gitlab
+    - DB_PASS=password
+    - DB_NAME=gitlabhq_production
+    - DB_EXTENSION=pg_trgm
+    networks:
+    - mynet
+ 
+  gitlab:
+    container_name: gitlab
+    restart: always
+    image: sameersbn/gitlab:latest
+    depends_on:
+    - redis
+    - postgresql
+    ports:
+    - "10080:80"
+    - "10022:22"
+    volumes:
+    - /srv/gitlab/data:/home/git/data:Z
+    - /srv/gitlab/logs:/var/log/gitlab
+    - /srv/certs:/certs
+    environment:
+    - DEBUG=false
+ 
+    - DB_ADAPTER=postgresql
+    - DB_HOST=postgresql
+    - DB_PORT=5432
+    - DB_USER=gitlab
+    - DB_PASS=password
+    - DB_NAME=gitlabhq_production
+ 
+    - REDIS_HOST=redis
+    - REDIS_PORT=6379
+    - GITLAB_SSH_PORT=10022
+    - GITLAB_PORT=10080
+    - GITLAB_HOST=git.labs.lc
+ 
+    - GITLAB_SECRETS_SECRET_KEY_BASE=neraterandomstringstasdasdghjfkajfhsakjfhk234hkwdjhfdskjfhsdkjf
+    - GITLAB_SECRETS_OTP_KEY_BASE=dfjdsafjsaglhjsdlkfjghsldfghjdslfjghsldfghjsldjfhgsldkjfhglsjdfghdslfghjldsjfhgdsljfghdsljfghsldjfghdsljghf
+    - GITLAB_SECRETS_DB_KEY_BASE=superrandomsecret
+ 
+    - GITLAB_REGISTRY_ENABLED=true
+    - GITLAB_REGISTRY_HOST=registry.git.labs.lc
+    - GITLAB_REGISTRY_PORT=5000
+    - GITLAB_REGISTRY_API_URL="https://registry.git.labs.lc:5000/"
+    - GITLAB_REGISTRY_KEY_PATH=/certs/registry-auth.key
+    - SSL_REGISTRY_CERT_PATH=/certs/registry.crt
+    - SSL_REGISTRY_KEY_PATH=/certs/registry.key
+    networks:
+     mynet:
+      aliases:
+      - git.labs.lc
+ 
+  registry:
+    container_name: docker-registry
+    restart: always
+    image: registry:2.4.1
+    volumes:
+    - /srv/gitlab/shared/registry:/registry
+    - /srv/certs:/certs
+    environment:
+    - REGISTRY_LOG_LEVEL=info
+    - REGISTRY_STORAGE_FILESYSTEM_ROOTDIRECTORY=/registry
+    - REGISTRY_AUTH_TOKEN_REALM=http://git.labs.lc:10080/jwt/auth
+    - REGISTRY_AUTH_TOKEN_SERVICE=container_registry
+    - REGISTRY_AUTH_TOKEN_ISSUER=gitlab-issuer
+    - REGISTRY_AUTH_TOKEN_ROOTCERTBUNDLE=/certs/registry-auth.crt
+    - REGISTRY_STORAGE_DELETE_ENABLED=true
+    - REGISTRY_HTTP_TLS_CERTIFICATE=/certs/registry.crt
+    - REGISTRY_HTTP_TLS_KEY=/certs/registry.key
+    ports:
+    - "0.0.0.0:5000:5000"
+    networks:
+     mynet:
+      aliases:
+      - registry.git.labs.lc
+ 
+  gitlab-runner:
+   container_name: gitlab-runner
+   image: gitlab/gitlab-runner:latest
+   volumes:
+     - /srv/gitlab-runner/data:/home/gitlab_ci_multi_runner/data
+     - /srv/gitlab-runner/config:/etc/gitlab-runner
+     - /var/run/docker.sock:/var/run/docker.sock:rw
+   environment:
+     - CI_SERVER_URL=http://git.labs.lc:10080/ci
+   restart: always
+   dns: 192.168.0.1
+ 
+networks:
+  mynet:
